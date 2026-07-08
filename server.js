@@ -63,6 +63,23 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') return sendJSON(res, 204, {});
 
+  // ---- serve the frontend (same server, no separate hosting needed) ----
+  if (req.method === 'GET' && !url.pathname.startsWith('/api')) {
+    const filePath = url.pathname === '/'
+      ? path.join(__dirname, 'public', 'index.html')
+      : path.join(__dirname, 'public', url.pathname);
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      const ext = path.extname(filePath);
+      const type = ext === '.html' ? 'text/html' : ext === '.js' ? 'text/javascript' : ext === '.css' ? 'text/css' : 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': type });
+      return fs.createReadStream(filePath).pipe(res);
+    }
+    if (url.pathname === '/') {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('put index.html inside a "public" folder next to server.js');
+    }
+  }
+
   // GET /api/profile?username=foo
   if (req.method === 'GET' && url.pathname === '/api/profile') {
     const username = (url.searchParams.get('username') || '').trim();
