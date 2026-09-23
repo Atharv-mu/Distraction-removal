@@ -1,4 +1,4 @@
-# Distraction Removal — backend
+# Distraction Removal 
 
 A tiny zero-dependency Node.js server that stores real user accounts:
 username, streak, total sessions, and today's sprint count — in a local
