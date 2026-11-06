@@ -11,69 +11,88 @@
 
 **Live demo:** [distraction-removal.onrender.com](https://distraction-removal.onrender.com/)
 
-Distraction Removal is a calm, simple focus app for students who are tired of losing hours to their phone. You complete one short study sprint, earn a small break-time game, and build a streak that reflects the work you actually did.
+Distraction Removal is a calm focus app for students who are tired of losing hours to their phone. You complete one short study sprint, unlock a one-minute break game, and build a streak that reflects the work you actually did.
 
 There are no feeds, no notifications and no infinite scroll. Once the timer starts, the app stays out of your way.
+
+It is a small prototype: a single Node.js server with no dependencies, serving one HTML page and a tiny JSON API.
 
 ---
 
 ## Contents
 
-- [What it does](#what-it-does)
+- [Features](#features)
 - [Quick start](#quick-start)
-- [How it's put together](#how-its-put-together)
+- [Project structure](#project-structure)
+- [How it works](#how-it-works)
 - [API](#api)
-- [Things to know](#things-to-know)
+- [Known limitations](#known-limitations)
 - [Ideas for next steps](#ideas-for-next-steps)
 - [License](#license)
 
 ---
 
-## What it does
+## Features
 
-- **Focus sprints.** A glowing ring counts down one sprint at a time. Choose 15, 25 or 45 minutes (15 is the default), and pause, resume or reset whenever you need to.
-- **Earned rewards.** Finish a sprint and a short "bubble pop" mini-game unlocks for 60 seconds, giving you a calm break instead of a doom-scroll.
-- **Real streaks.** Study today and your streak goes up. Miss a day and it resets to 1 the next time you finish a sprint. The app also tracks your total sessions and the sprints you've done today.
-- **AI study buddy.** A chat box for quick questions or a motivation nudge. Answers stay short (under about 70 words) so you can get straight back to work.
-- **Simple login.** Type a name and you're in, with no password or email. This is a prototype.
+- **Focus sprints.** A glowing ring counts down one sprint at a time. Choose 15, 25 or 45 minutes (15 is the default), then start, pause, resume or reset. The length can only be changed while the timer isn't running.
+- **Earned break game.** Finishing a sprint unlocks a "bubble pop" game for 60 seconds, with a live score. When it ends, the game locks again until your next sprint.
+- **Streaks and stats.** The app tracks your current streak, total sprints and sprints completed today. A row of eight dots fills up as you finish sprints during the day.
+- **AI study buddy.** A chat panel with three quick prompts ("motivate me", "phone habit", "what's pomodoro?"). Replies are limited to 180 tokens and the assistant is asked to keep answers under about 70 words. Each message is answered on its own, with no memory of earlier ones.
+- **Simple login.** Type a name and you're in. There is no password or email.
+- **Atmosphere.** A dark theme with animated aurora and starfield backgrounds, a custom cursor, and a particle orb that tightens while you focus and bursts when a sprint ends.
 
 ---
 
 ## Quick start
 
-You only need [Node.js](https://nodejs.org) version 16 or newer. The project has **zero dependencies**, so there is nothing to install.
+You need [Node.js](https://nodejs.org) 16 or newer. There are no dependencies to install.
 
 ```bash
 cd Distraction-removal-main
 node server.js
 ```
 
-Then open **http://localhost:5050** in your browser.
+Open **http://localhost:5050** in your browser.
 
-To use a different port:
+To use another port:
 
 ```bash
 PORT=3000 node server.js
 ```
 
-`npm start` works too.
+`npm start` runs the same command.
 
 ---
 
-## How it's put together
+## Project structure
 
 ```
 Distraction-removal-main/
-├── server.js        # Tiny Node server: serves the page and a small JSON API
+├── server.js        # Node server: serves the page and the JSON API
 ├── package.json     # Project info and the "start" script
 ├── public/
-│   └── index.html   # The entire frontend (HTML, CSS and JS in one file)
-└── data.json        # Created automatically on first login; stores user profiles
+│   └── index.html   # The whole frontend: HTML, CSS and JavaScript
+├── README.md
+└── data.json        # Created automatically on first login (not in the repo)
 ```
 
-**Frontend** (`public/index.html`): a single self-contained page with three screens: a landing page, a login screen and the app itself. It has a dark theme with animated aurora and starfield backgrounds, a custom cursor, the timer ring, and a particle orb that tightens while you focus and bursts when you finish.
+---
 
-**Backend** (`server.js`): plain Node using only built-in modules. It serves the page and saves each user's profile to a local `data.json` file.
+## How it works
+
+**Backend (`server.js`).** It uses only Node's built-in `http`, `fs` and `path` modules. It serves files from `public/` and stores every user's profile in a local `data.json` file. Usernames are matched case-insensitively, so "Aman" and "aman" are the same profile.
+
+**Streak rules.** When a sprint is completed:
+
+- If you already finished a sprint today, the streak stays the same and the counters go up.
+- If your last sprint was yesterday, the streak goes up by one.
+- Otherwise, the streak resets to 1.
+
+"Today" and "yesterday" are calculated in UTC.
+
+**Frontend (`public/index.html`).** One self-contained page with three screens: a landing page, a login screen and the app itself. Fonts (Space Grotesk, Inter and JetBrains Mono) load from Google Fonts.
+
+**Offline fallback.** The frontend tries the backend first. If the request fails, it keeps your profile in `window.storage` and works out streaks locally. A badge in the app header shows either "live backend" or "offline mode (local)".
 
 ---
 
@@ -81,9 +100,9 @@ Distraction-removal-main/
 
 | Method | Endpoint | What it does |
 |--------|----------|--------------|
-| `GET`  | `/api/profile?username=name` | Fetch a user's profile |
-| `POST` | `/api/login` with `{ "username": "name" }` | Log in, creating the profile if it's new |
-| `POST` | `/api/session/complete` with `{ "username": "name" }` | Record a finished sprint and update the streak |
+| `GET`  | `/api/profile?username=name` | Return a user's profile. For an unknown user it returns an empty profile without saving it. |
+| `POST` | `/api/login` with `{ "username": "name" }` | Log in, creating and saving the profile if it's new. |
+| `POST` | `/api/session/complete` with `{ "username": "name" }` | Record a finished sprint, update the streak and save. |
 
 A profile looks like this:
 
@@ -97,30 +116,29 @@ A profile looks like this:
 }
 ```
 
-Usernames are matched case-insensitively, so "Aman" and "aman" are the same person.
-
-### If the server is down
-
-The frontend tries the backend first. If it can't reach it, it falls back to saving your profile in the browser and working out streaks locally. A small badge in the nav bar shows which mode you're in.
+A missing username returns `400` with `{ "error": "username required" }`. Unknown routes return `404` with `{ "error": "not found" }`.
 
 ---
 
-## Things to know
+## Known limitations
 
-- **The AI chat calls the Anthropic API directly from the browser** (model `claude-sonnet-4-6`), with no API key in the code. That works inside Claude's artifact environment, but **it won't work when you run the app locally with `node server.js`**. To get chat working on your own machine, add a `/api/chat` route to `server.js` that keeps your API key in an environment variable and forwards the request, then point the frontend at it. Never put the key in `index.html`.
-- **Login is not secure.** Anyone can type any name and see or add to that person's streak. That's fine for a prototype but not for real users.
-- **The browser fallback uses `window.storage`**, which also comes from the Claude artifact environment. In a normal browser it fails silently, so the backend must be running for your progress to be saved.
-- **Dates are in UTC**, so "today" can roll over at an odd hour depending on your timezone (for India, that's 5:30 AM).
-- **`data.json` is a plain file.** It's fine for a few users, but it isn't built for heavy or simultaneous use.
-- **Fonts load from Google Fonts**, so you need an internet connection for the page to look right.
+- **The AI chat only works inside Claude's artifact environment.** It calls the Anthropic API directly from the browser (model `claude-sonnet-4-6`) with no API key in the code. When you run the app with `node server.js`, or on the hosted demo, those requests fail and the chat shows "Connection hiccup" or a fallback message. To make it work, add a `/api/chat` route to `server.js` that keeps your API key in an environment variable and forwards the request, then point the frontend at it. Never put the key in `index.html`.
+- **Login is not secure.** Anyone can enter any name and read or change that person's streak. This is fine for a prototype but not for real users.
+- **The offline fallback needs Claude's environment too.** `window.storage` only exists there. In a normal browser the fallback can't save anything, so your progress lasts only until you refresh the page. Keep the backend running to save it.
+- **The timer lives in the page.** Refreshing or closing the tab loses the sprint in progress.
+- **`data.json` is a plain file** that is fully rewritten on every login and every completed sprint. That is fine for a handful of users, but not for heavy or simultaneous use. On hosts with a temporary filesystem, such as Render's default setup, it can also be reset when the app redeploys or restarts.
+- **The server is minimal.** CORS allows any origin, request bodies have no size limit, and there is no rate limiting or username validation.
+- **UTC dates.** "Today" rolls over at midnight UTC, which is 5:30 AM in India.
+- **An internet connection is needed** for the Google Fonts to load.
 
 ---
 
 ## Ideas for next steps
 
-- Add a `/api/chat` proxy so the study buddy works locally
+- Add a `/api/chat` proxy so the study buddy works locally and on the hosted site
 - Real accounts, with passwords or Google sign-in
 - Use each user's local timezone for streaks
+- Save data in a real database instead of `data.json`, and add `data.json` to `.gitignore`
 - Let users choose how long the reward game lasts
 - More reward games and a weekly history view
 
